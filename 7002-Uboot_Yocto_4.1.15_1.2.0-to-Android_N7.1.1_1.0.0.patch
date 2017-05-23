@@ -1,0 +1,35 @@
+diff --git a/mx6advantech.c b/mx6advantech.c
+index 716e590..43db8a6 100755
+--- a/mx6advantech.c
++++ b/mx6advantech.c
+@@ -884,6 +884,16 @@ int overwrite_console(void)
+ 
+ int board_eth_init(bd_t *bis)
+ {
++	if (is_mx6dqp()) {
++		int ret;
++
++		/* select ENET MAC0 TX clock from PLL */
++		imx_iomux_set_gpr_register(5, 9, 1, 1);
++		ret = enable_fec_anatop_clock(0, ENET_125MHZ);
++		if (ret)
++		    printf("Error fec anatop clock settings!\n");
++	}
++
+ 	setup_iomux_enet();
+ 	setup_pcie();
+ 
+@@ -1299,7 +1309,12 @@ int check_recovery_cmd_file(void)
+     int button_pressed = 0;
+     int recovery_mode = 0;
+ 
+-    recovery_mode = recovery_check_and_clean_flag();
++//   [Advantech.0510] debug
++//    recovery_mode = recovery_check_and_clean_flag();
++#ifdef CONFIG_BCB_SUPPORT
++    recovery_mode = recovery_check_and_clean_command();
++#endif
++//   [Advantech.0510 end]
+ 
+     /* Check Recovery Combo Button press or not. */
+ 	imx_iomux_v3_setup_multiple_pads(recovery_key_pads,
