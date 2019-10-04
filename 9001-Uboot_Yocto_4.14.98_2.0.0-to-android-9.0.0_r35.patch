@@ -1,0 +1,754 @@
+diff --git a/README.md b/README.md
+deleted file mode 100644
+index ff2d311..0000000
+--- a/README.md
++++ /dev/null
+@@ -1,16 +0,0 @@
+-uboot-imx6
+-==========
+-Advantech RISC platform Devices u-boot tree for i.MX6.
+-
+-This repository contains u-boot source tree for Advantech RISC Devices.
+-
+-It is based largely on Freescale's u-boot trees at [git.freescale.com][freescale].
+-
+-u-boot releases:
+-
+-Yocto 2.0
+-----------
+-Latest Yocto 2.0 sources are in branch [imx_v2015.04_4.1.15_1.0.0_ga][latest-4.1.15]
+-
+-[freescale]: http://git.freescale.com/git/cgit.cgi/imx/uboot-imx.git/ "Freescale Git repository"
+-[latest-4.1.15]:https://github.com/ADVANTECH-Corp/uboot-imx6/tree/imx_v2015.04_4.1.15_1.0.0_ga "2015.04_4.1.15_1.0.0 GA kernel tree"
+diff --git a/arch/arm/include/asm/arch-imx8/imx-regs.h b/arch/arm/include/asm/arch-imx8/imx-regs.h
+index e3d3e2b..7bd0731 100644
+--- a/arch/arm/include/asm/arch-imx8/imx-regs.h
++++ b/arch/arm/include/asm/arch-imx8/imx-regs.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright 2017 NXP
++ * Copyright 2017, 2019 NXP
+  *
+  * SPDX-License-Identifier:	GPL-2.0+
+  *
+@@ -8,6 +8,8 @@
+ #ifndef __ASM_ARCH_IMX_REGS_H__
+ #define __ASM_ARCH_IMX_REGS_H__
+ 
++#define ARCH_MXC
++
+ #define MU_BASE_ADDR(id)	((0x5D1B0000UL + (id*0x10000)))
+ 
+ #define LPUART_BASE			0x5A060000
+diff --git a/arch/arm/include/asm/arch-imx8m/imx-regs.h b/arch/arm/include/asm/arch-imx8m/imx-regs.h
+index 08a06c3..07675e9 100644
+--- a/arch/arm/include/asm/arch-imx8m/imx-regs.h
++++ b/arch/arm/include/asm/arch-imx8m/imx-regs.h
+@@ -1,9 +1,14 @@
+ /*
+- * Copyright 2017-2018 NXP
++ * Copyright 2017-2019 NXP
+  *
+  * SPDX-License-Identifier:	GPL-2.0+
+  */
+ 
++#ifndef __IMX8M_REGS_H_
++#define __IMX8M_REGS_H_
++
++#define ARCH_MXC
++
+ #ifdef CONFIG_IMX8MQ
+ #include <asm/arch/imx-regs-imx8mq.h>
+ #elif defined(CONFIG_IMX8MM)
+@@ -11,3 +16,5 @@
+ #else
+ #error "Error no imx-regs.h"
+ #endif
++
++#endif
+diff --git a/arch/arm/include/asm/arch-mx7ulp/imx-regs.h b/arch/arm/include/asm/arch-mx7ulp/imx-regs.h
+index 9e0eada..e62eeb4 100644
+--- a/arch/arm/include/asm/arch-mx7ulp/imx-regs.h
++++ b/arch/arm/include/asm/arch-mx7ulp/imx-regs.h
+@@ -1,6 +1,6 @@
+ /*
+  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+- * Copyright 2017 NXP
++ * Copyright 2017, 2019 NXP
+  *
+  * SPDX-License-Identifier: GPL-2.0+
+  */
+@@ -8,6 +8,8 @@
+ #ifndef _MX7ULP_REGS_H_
+ #define _MX7ULP_REGS_H_
+ 
++#define ARCH_MXC
++
+ #include <linux/sizes.h>
+ 
+ #define ROM_SW_INFO_ADDR        0x000001E8
+diff --git a/arch/arm/mach-imx/hab.c b/arch/arm/mach-imx/hab.c
+index bc4f662..0c3d8be 100644
+--- a/arch/arm/mach-imx/hab.c
++++ b/arch/arm/mach-imx/hab.c
+@@ -18,7 +18,7 @@ DECLARE_GLOBAL_DATA_PTR;
+ #define ALIGN_SIZE		0x1000
+ #define MX6DQ_PU_IROM_MMU_EN_VAR	0x009024a8
+ #define MX6DLS_PU_IROM_MMU_EN_VAR	0x00901dd0
+-#define MX6SL_PU_IROM_MMU_EN_VAR	0x00900a18
++#define MX6SL_PU_IROM_MMU_EN_VAR	0x00901c60
+ #define IS_HAB_ENABLED_BIT \
+ 	(is_soc_type(MXC_SOC_MX7ULP) ? 0x80000000 :	\
+ 	 ((is_soc_type(MXC_SOC_MX7) || is_soc_type(MXC_SOC_IMX8M))? 0x2000000 : 0x2))
+diff --git a/arch/arm/mach-imx/imx8/cpu.c b/arch/arm/mach-imx/imx8/cpu.c
+index 5e970cb..c4fcf0c 100644
+--- a/arch/arm/mach-imx/imx8/cpu.c
++++ b/arch/arm/mach-imx/imx8/cpu.c
+@@ -395,7 +395,7 @@ int arch_auxiliary_core_up(u32 core_id, ulong boot_private_data)
+ 	sc_ipc_t ipcHndl;
+ 	sc_rsrc_t core_rsrc, mu_rsrc;
+ 	sc_faddr_t tcml_addr;
+-	u32 tcml_size = SZ_128K;
++	u32 tcm_size = SZ_256K; /* TCML + TCMU */
+ 	ulong addr;
+ 
+ 	ipcHndl = gd->arch.ipc_channel_handle;
+@@ -418,7 +418,7 @@ int arch_auxiliary_core_up(u32 core_id, ulong boot_private_data)
+ 
+ 	addr = (sc_faddr_t)boot_private_data;
+ 
+-	if (addr >= tcml_addr && addr <= tcml_addr + tcml_size) {
++	if (addr >= tcml_addr && addr <= tcml_addr + tcm_size) {
+ 		printf("Wrong image address 0x%lx, should not in TCML\n",
+ 			addr);
+ 		return -EINVAL;
+@@ -435,7 +435,7 @@ int arch_auxiliary_core_up(u32 core_id, ulong boot_private_data)
+ 	printf("Copy M4 image from 0x%lx to TCML 0x%lx\n", addr, (ulong)tcml_addr);
+ 
+ 	if (addr != tcml_addr)
+-		memcpy((void *)tcml_addr, (void *)addr, tcml_size);
++		memcpy((void *)tcml_addr, (void *)addr, tcm_size);
+ 
+ 	printf("Start M4 %u\n", core_id);
+ 	if (sc_pm_cpu_start(ipcHndl, core_rsrc, true, tcml_addr) != SC_ERR_NONE)
+@@ -511,7 +511,7 @@ int arch_auxiliary_core_up(u32 core_id, ulong boot_private_data)
+ 		core_rsrc = SC_R_M4_0_PID0;
+ 		aux_core_ram = 0x34FE0000;
+ 		mu_rsrc = SC_R_M4_0_MU_1A;
+-		size = SZ_128K;
++		size = SZ_256K;
+ 		break;
+ 	case 1:
+ 		core_rsrc = SC_R_DSP;
+diff --git a/board/freescale/imx8mq_aiy/imx8m_aiy.c b/board/freescale/imx8mq_aiy/imx8m_aiy.c
+index 7b8427b..0660264 100644
+--- a/board/freescale/imx8mq_aiy/imx8m_aiy.c
++++ b/board/freescale/imx8mq_aiy/imx8m_aiy.c
+@@ -421,10 +421,10 @@ int board_late_init(void)
+ 	if ((baseboard_id == AIY_MICRON_1G) ||
+ 			(baseboard_id == AIY_HYNIX_1G)) {
+ 		/* 1G DDR size */
+-		env_set("bootargs_ram_capacity", "cma=296M galcore.contiguousSize=33554432");
++		env_set("bootargs_ram_capacity", "cma=296M galcore.contiguousSize=33554432 androidboot.gui_resolution=720p");
+ 	} else {
+ 		/* 3G DDR size */
+-		env_set("bootargs_ram_capacity", "cma=384M");
++		env_set("bootargs_ram_capacity", "cma=384M androidboot.gui_resolution=1080p");
+ 	}
+ 
+ 	return 0;
+diff --git a/common/image-android.c b/common/image-android.c
+index 145e87e..66003de 100644
+--- a/common/image-android.c
++++ b/common/image-android.c
+@@ -18,6 +18,7 @@
+ #include <fsl_fastboot.h>
+ #include <asm/setup.h>
+ #include <dm.h>
++#include <mmc.h>
+ 
+ #define ANDROID_IMAGE_DEFAULT_KERNEL_ADDR	0x10008000
+ 
+diff --git a/configs/imx8mm_evk_1g_ddr_android_defconfig b/configs/imx8mm_evk_1g_ddr_android_defconfig
+new file mode 100755
+index 0000000..4b93106
+--- /dev/null
++++ b/configs/imx8mm_evk_1g_ddr_android_defconfig
+@@ -0,0 +1,65 @@
++CONFIG_ARM=y
++CONFIG_ARCH_IMX8M=y
++CONFIG_SYS_TEXT_BASE=0x40200000
++CONFIG_SYS_MALLOC_F_LEN=0x2000
++CONFIG_USB_TCPC=y
++CONFIG_TARGET_IMX8MM_EVK=y
++CONFIG_SYS_EXTRA_OPTIONS="IMX_CONFIG=arch/arm/mach-imx/spl_sd.cfg,SPL_TEXT_BASE=0x7E1000,ANDROID_SUPPORT,ANDROID_LOW_MEMORY"
++CONFIG_FIT=y
++CONFIG_SPL_LOAD_FIT=y
++CONFIG_EFI_PARTITION=y
++CONFIG_ARCH_MISC_INIT=y
++CONFIG_SPL=y
++CONFIG_SPL_BOARD_INIT=y
++CONFIG_SPL_MMC_SUPPORT=y
++CONFIG_HUSH_PARSER=y
++CONFIG_OF_LIBFDT=y
++CONFIG_FS_FAT=y
++CONFIG_CMD_EXT2=y
++CONFIG_CMD_EXT4=y
++CONFIG_CMD_EXT4_WRITE=y
++CONFIG_CMD_FAT=y
++CONFIG_DEFAULT_DEVICE_TREE="fsl-imx8mm-evk"
++CONFIG_ENV_IS_IN_MMC=y
++CONFIG_CMD_SF=y
++CONFIG_CMD_I2C=y
++CONFIG_CMD_GPIO=y
++CONFIG_CMD_CACHE=y
++CONFIG_CMD_REGULATOR=y
++CONFIG_CMD_MEMTEST=y
++CONFIG_OF_CONTROL=y
++CONFIG_DM_GPIO=y
++CONFIG_DM_I2C=y
++CONFIG_SYS_I2C_MXC=y
++CONFIG_DM_MMC=y
++# CONFIG_DM_PMIC=y
++CONFIG_DM_SPI_FLASH=y
++CONFIG_SPI_FLASH=y
++CONFIG_SPI_FLASH_STMICRO=y
++CONFIG_DM_ETH=y
++CONFIG_PINCTRL=y
++CONFIG_PINCTRL_IMX8M=y
++CONFIG_DM_REGULATOR=y
++CONFIG_DM_REGULATOR_FIXED=y
++CONFIG_DM_REGULATOR_GPIO=y
++CONFIG_DM_SPI=y
++CONFIG_FSL_FSPI=y
++CONFIG_NXP_TMU=y
++CONFIG_DM_THERMAL=y
++CONFIG_USB=y
++CONFIG_DM_USB=y
++CONFIG_USB_EHCI_HCD=y
++CONFIG_LZ4=y
++CONFIG_FLASH_MCUFIRMWARE_SUPPORT=y
++CONFIG_USB_GADGET=y
++CONFIG_USB_GADGET_DOWNLOAD=y
++CONFIG_SDP_LOADADDR=0x40400000
++CONFIG_USB_GADGET_MANUFACTURER="FSL"
++CONFIG_USB_GADGET_VENDOR_NUM=0x0525
++CONFIG_USB_GADGET_PRODUCT_NUM=0xa4a5
++CONFIG_SPL_USB_HOST_SUPPORT=y
++CONFIG_SPL_USB_GADGET_SUPPORT=y
++CONFIG_SPL_USB_SDP_SUPPORT=y
++
++CONFIG_NOT_UUU_BUILD=y
++CONFIG_APPEND_BOOTARGS=y
+diff --git a/configs/imx8mq_aiy_android_trusty_defconfig b/configs/imx8mq_aiy_android_trusty_defconfig
+index 1fe10c9..b6abbc5 100644
+--- a/configs/imx8mq_aiy_android_trusty_defconfig
++++ b/configs/imx8mq_aiy_android_trusty_defconfig
+@@ -75,6 +75,7 @@ CONFIG_SPL_USB_HOST_SUPPORT=y
+ CONFIG_SPL_USB_GADGET_SUPPORT=y
+ CONFIG_SPL_USB_SDP_SUPPORT=y
+ CONFIG_SAVED_DRAM_TIMING_BASE=0x40000000
++CONFIG_REGEX=n
+ 
+ CONFIG_NOT_UUU_BUILD=y
+ CONFIG_APPEND_BOOTARGS=y
+diff --git a/configs/imx8mq_aiy_android_uuu_defconfig b/configs/imx8mq_aiy_android_uuu_defconfig
+index ffecd38..0f1a88d 100644
+--- a/configs/imx8mq_aiy_android_uuu_defconfig
++++ b/configs/imx8mq_aiy_android_uuu_defconfig
+@@ -75,3 +75,4 @@ CONFIG_SPL_USB_HOST_SUPPORT=y
+ CONFIG_SPL_USB_GADGET_SUPPORT=y
+ CONFIG_SPL_USB_SDP_SUPPORT=y
+ CONFIG_SAVED_DRAM_TIMING_BASE=0x40000000
++CONFIG_REGEX=n
+diff --git a/drivers/mmc/fsl_esdhc.c b/drivers/mmc/fsl_esdhc.c
+index cb454d5..08c1cdb 100644
+--- a/drivers/mmc/fsl_esdhc.c
++++ b/drivers/mmc/fsl_esdhc.c
+@@ -6,6 +6,8 @@
+  * (C) Copyright 2003
+  * Kyle Harris, Nexus Technologies, Inc. kharris@nexus-tech.net
+  *
++ * Copyright 2019 NXP
++ *
+  * SPDX-License-Identifier:	GPL-2.0+
+  */
+ 
+@@ -611,8 +613,7 @@ static void set_sysctl(struct fsl_esdhc_priv *priv, struct mmc *mmc, uint clock)
+ 		for (; pre_div < 256; pre_div *= 2)
+ 			if ((sdhc_clk / pre_div) <= (clock * 16))
+ 				break;
+-	} else
+-		pre_div = 1;
++	}
+ 
+ 	for (div = 1; div <= 16; div++)
+ 		if ((sdhc_clk / (div * pre_div)) <= clock)
+diff --git a/drivers/usb/gadget/f_fastboot.c b/drivers/usb/gadget/f_fastboot.c
+index f06cd6d..fc8ee15 100644
+--- a/drivers/usb/gadget/f_fastboot.c
++++ b/drivers/usb/gadget/f_fastboot.c
+@@ -1880,6 +1880,7 @@ static FbBootMode fastboot_get_bootmode(void)
+ static void fastboot_setup_system_boot_args(const char *slot, bool append_root)
+ {
+ 	const char *system_part_name = NULL;
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ 	if(slot == NULL)
+ 		return;
+ 	if(!strncmp(slot, "_a", strlen("_a")) || !strncmp(slot, "boot_a", strlen("boot_a"))) {
+@@ -1891,6 +1892,10 @@ static void fastboot_setup_system_boot_args(const char *slot, bool append_root)
+ 		printf("slot invalid!\n");
+ 		return;
+ 	}
++#else
++	system_part_name = FASTBOOT_PARTITION_SYSTEM;
++#endif
++
+ 	struct fastboot_ptentry *ptentry = fastboot_flash_find_ptn(system_part_name);
+ 	if(ptentry != NULL) {
+ 		char bootargs_3rd[ANDR_BOOT_ARGS_SIZE];
+@@ -2256,7 +2261,7 @@ int do_boota(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]) {
+ 		requested_partitions_boot[1] = NULL;
+ 		requested_partitions_recovery[1] = NULL;
+ 	}
+-#ifndef CONFIG_ANDROID_AB_SUPPORT
++#ifndef CONFIG_SYSTEM_RAMDISK_SUPPORT
+ 	else if (is_recovery_mode){
+ 		requested_partitions_recovery[1] = NULL;
+ 	}
+@@ -2272,6 +2277,7 @@ int do_boota(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]) {
+ 	avb_result = avb_ab_flow_fast(&fsl_avb_ab_ops, requested_partitions_boot, allow_fail,
+ 			AVB_HASHTREE_ERROR_MODE_RESTART_AND_INVALIDATE, &avb_out_data);
+ #else
++#ifndef CONFIG_SYSTEM_RAMDISK_SUPPORT
+ 	if (!is_recovery_mode) {
+ 		avb_result = avb_single_flow(&fsl_avb_ab_ops, requested_partitions_boot, allow_fail,
+ 				AVB_HASHTREE_ERROR_MODE_RESTART, &avb_out_data);
+@@ -2279,6 +2285,10 @@ int do_boota(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]) {
+ 		avb_result = avb_single_flow(&fsl_avb_ab_ops, requested_partitions_recovery, allow_fail,
+ 				AVB_HASHTREE_ERROR_MODE_RESTART, &avb_out_data);
+ 	}
++#else /* CONFIG_SYSTEM_RAMDISK_SUPPORT defined */
++	avb_result = avb_single_flow(&fsl_avb_ab_ops, requested_partitions_boot, allow_fail,
++			AVB_HASHTREE_ERROR_MODE_RESTART, &avb_out_data);
++#endif /*CONFIG_SYSTEM_RAMDISK_SUPPORT*/
+ #endif
+ #else /* !CONFIG_DUAL_BOOTLOADER */
+ 	/* We will only verify single one slot which has been selected in SPL */
+@@ -2301,7 +2311,7 @@ int do_boota(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]) {
+ 		/* We may have more than one partition loaded by AVB, find the boot
+ 		 * partition first.
+ 		 */
+-#ifdef CONFIG_ANDROID_AB_SUPPORT
++#ifdef CONFIG_SYSTEM_RAMDISK_SUPPORT
+ 		if (find_partition_data_by_name("boot", avb_out_data, &avb_loadpart))
+ 			goto fail;
+ #else
+@@ -2406,13 +2416,13 @@ int do_boota(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]) {
+ 			goto fail;
+ 		} else
+ 			dt_img = (struct dt_table_header *)avb_loadpart->data;
+-#elif defined(CONFIG_ANDROID_AB_SUPPORT)
++#elif defined(CONFIG_SYSTEM_RAMDISK_SUPPORT) /* It means boot.img(recovery) do not include dtb, it need load dtb from partition */
+ 		if (find_partition_data_by_name("dtbo",
+ 					avb_out_data, &avb_loadpart)) {
+ 			goto fail;
+ 		} else
+ 			dt_img = (struct dt_table_header *)avb_loadpart->data;
+-#else
++#else /* recovery.img include dts while boot.img use dtbo */
+ 		if (is_recovery_mode) {
+ 			if (hdr->header_version != 1) {
+ 				printf("boota: boot image header version error!\n");
+diff --git a/include/configs/imx8mm_evk_android.h b/include/configs/imx8mm_evk_android.h
+index 1bb37cc..2d74a03 100644
+--- a/include/configs/imx8mm_evk_android.h
++++ b/include/configs/imx8mm_evk_android.h
+@@ -13,7 +13,9 @@
+ #define CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_AVB_SUPPORT
+ #define CONFIG_SUPPORT_EMMC_RPMB
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
+ #define CONFIG_AVB_FUSE_BANK_SIZEW 0
+ #define CONFIG_AVB_FUSE_BANK_START 0
+ #define CONFIG_AVB_FUSE_BANK_END 0
+@@ -74,4 +76,10 @@
+ 
+ #endif
+ 
++/* Enable CONFIG_ANDROID_LOW_MEMORY to config 1GB ddr */
++#ifdef  CONFIG_ANDROID_LOW_MEMORY
++#undef  PHYS_SDRAM_SIZE
++#define PHYS_SDRAM_SIZE 0x40000000 /* 1GB DDR */
++#endif
++
+ #endif /* IMX8MM_EVK_ANDROID_H */
+diff --git a/include/configs/imx8mq_aiy_android.h b/include/configs/imx8mq_aiy_android.h
+index 5b5a86c..5389717 100644
+--- a/include/configs/imx8mq_aiy_android.h
++++ b/include/configs/imx8mq_aiy_android.h
+@@ -11,7 +11,9 @@
+ 
+ #define CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SUPPORT_EMMC_RPMB
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
+ #define CONFIG_AVB_FUSE_BANK_SIZEW 4
+ #define CONFIG_AVB_FUSE_BANK_START 14
+ #define CONFIG_AVB_FUSE_BANK_END 14
+@@ -71,9 +73,11 @@
+ #ifdef CONFIG_SPL_BUILD
+ 
+ #define CONFIG_SPL_SHA256
++#define CONFIG_ENV_IS_NOWHERE
+ #undef CONFIG_ENV_IS_IN_MMC
+ #undef CONFIG_BLK
+-#define CONFIG_ENV_IS_NOWHERE
++#undef CONFIG_CMD_UUID
++#undef CONFIG_LIB_RAND
+ 
+ #ifdef AVB_RPMB
+ #define BOOTLOADER_RBIDX_OFFSET  0x1E000
+diff --git a/include/configs/imx8mq_evk_android.h b/include/configs/imx8mq_evk_android.h
+index fa06e01..ea76aeb 100644
+--- a/include/configs/imx8mq_evk_android.h
++++ b/include/configs/imx8mq_evk_android.h
+@@ -12,7 +12,9 @@
+ #define CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_AVB_SUPPORT
+ #define CONFIG_SUPPORT_EMMC_RPMB
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
+ #define CONFIG_AVB_FUSE_BANK_SIZEW 0
+ #define CONFIG_AVB_FUSE_BANK_START 0
+ #define CONFIG_AVB_FUSE_BANK_END 0
+diff --git a/include/configs/imx8mq_evk_androidthings.h b/include/configs/imx8mq_evk_androidthings.h
+index a67b5d4..8c2ac1d 100644
+--- a/include/configs/imx8mq_evk_androidthings.h
++++ b/include/configs/imx8mq_evk_androidthings.h
+@@ -11,7 +11,9 @@
+ 
+ #define CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SUPPORT_EMMC_RPMB
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
+ #define CONFIG_AVB_FUSE_BANK_SIZEW 4
+ #define CONFIG_AVB_FUSE_BANK_START 14
+ #define CONFIG_AVB_FUSE_BANK_END 14
+diff --git a/include/configs/imx8qm_arm2.h b/include/configs/imx8qm_arm2.h
+index bf87664..390e21d 100644
+--- a/include/configs/imx8qm_arm2.h
++++ b/include/configs/imx8qm_arm2.h
+@@ -79,17 +79,17 @@
+ 
+ #define CONFIG_ENV_OVERWRITE
+ 
++#ifdef CONFIG_SATA_IMX
+ #define CONFIG_SCSI
+ #define CONFIG_SCSI_AHCI
+ #define CONFIG_SCSI_AHCI_PLAT
+ #define CONFIG_SYS_SCSI_MAX_SCSI_ID 1
+ #define CONFIG_CMD_SCSI
+-#define CONFIG_LIBATA
+ #define CONFIG_SYS_SCSI_MAX_LUN 1
+ #define CONFIG_SYS_SCSI_MAX_DEVICE      (CONFIG_SYS_SCSI_MAX_SCSI_ID * CONFIG_SYS_SCSI_MAX_LUN)
+ #define CONFIG_SYS_SCSI_MAXDEVICE       CONFIG_SYS_SCSI_MAX_DEVICE
+ #define CONFIG_SYS_SATA_MAX_DEVICE	1
+-#define CONFIG_SATA_IMX
++#endif
+ 
+ #define CONFIG_FSL_HSIO
+ #define CONFIG_PCIE_IMX8X
+diff --git a/include/configs/imx8qm_mek.h b/include/configs/imx8qm_mek.h
+index ce12bd6..ceb91a3 100644
+--- a/include/configs/imx8qm_mek.h
++++ b/include/configs/imx8qm_mek.h
+@@ -91,17 +91,17 @@
+ 
+ #define CONFIG_ENV_OVERWRITE
+ 
++#ifdef CONFIG_SATA_IMX
+ #define CONFIG_SCSI
+ #define CONFIG_SCSI_AHCI
+ #define CONFIG_SCSI_AHCI_PLAT
+ #define CONFIG_SYS_SCSI_MAX_SCSI_ID 1
+ #define CONFIG_CMD_SCSI
+-#define CONFIG_LIBATA
+ #define CONFIG_SYS_SCSI_MAX_LUN 1
+ #define CONFIG_SYS_SCSI_MAX_DEVICE      (CONFIG_SYS_SCSI_MAX_SCSI_ID * CONFIG_SYS_SCSI_MAX_LUN)
+ #define CONFIG_SYS_SCSI_MAXDEVICE       CONFIG_SYS_SCSI_MAX_DEVICE
+ #define CONFIG_SYS_SATA_MAX_DEVICE	1
+-#define CONFIG_SATA_IMX
++#endif
+ 
+ #define CONFIG_FSL_HSIO
+ #define CONFIG_PCIE_IMX8X
+diff --git a/include/configs/imx8qm_mek_android.h b/include/configs/imx8qm_mek_android.h
+index 42a261f..d8d7569 100644
+--- a/include/configs/imx8qm_mek_android.h
++++ b/include/configs/imx8qm_mek_android.h
+@@ -16,7 +16,9 @@
+ #define CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_AVB_SUPPORT
+ #define CONFIG_SUPPORT_EMMC_RPMB
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
+ #define CONFIG_AVB_FUSE_BANK_SIZEW 0
+ #define CONFIG_AVB_FUSE_BANK_START 0
+ #define CONFIG_AVB_FUSE_BANK_END 0
+diff --git a/include/configs/imx8qm_mek_android_auto.h b/include/configs/imx8qm_mek_android_auto.h
+index c0a0683..6b73155 100644
+--- a/include/configs/imx8qm_mek_android_auto.h
++++ b/include/configs/imx8qm_mek_android_auto.h
+@@ -28,7 +28,9 @@
+ #define CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_AVB_SUPPORT
+ #define CONFIG_SUPPORT_EMMC_RPMB
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
+ #define CONFIG_AVB_FUSE_BANK_SIZEW 0
+ #define CONFIG_AVB_FUSE_BANK_START 0
+ #define CONFIG_AVB_FUSE_BANK_END 0
+diff --git a/include/configs/imx8qxp_mek_android.h b/include/configs/imx8qxp_mek_android.h
+index dddcf45..992013f 100644
+--- a/include/configs/imx8qxp_mek_android.h
++++ b/include/configs/imx8qxp_mek_android.h
+@@ -16,7 +16,9 @@
+ #define CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_AVB_SUPPORT
+ #define CONFIG_SUPPORT_EMMC_RPMB
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
+ #define CONFIG_AVB_FUSE_BANK_SIZEW 0
+ #define CONFIG_AVB_FUSE_BANK_START 0
+ #define CONFIG_AVB_FUSE_BANK_END 0
+diff --git a/include/configs/imx8qxp_mek_android_auto.h b/include/configs/imx8qxp_mek_android_auto.h
+index 1ebd7ff..f564765 100644
+--- a/include/configs/imx8qxp_mek_android_auto.h
++++ b/include/configs/imx8qxp_mek_android_auto.h
+@@ -27,7 +27,9 @@
+ #define CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_AVB_SUPPORT
+ #define CONFIG_SUPPORT_EMMC_RPMB
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
+ #define CONFIG_AVB_FUSE_BANK_SIZEW 0
+ #define CONFIG_AVB_FUSE_BANK_START 0
+ #define CONFIG_AVB_FUSE_BANK_END 0
+diff --git a/include/configs/multa-imx7d_androidthings.h b/include/configs/multa-imx7d_androidthings.h
+index 23d05fc..8e25d7c 100644
+--- a/include/configs/multa-imx7d_androidthings.h
++++ b/include/configs/multa-imx7d_androidthings.h
+@@ -41,8 +41,9 @@
+ #define CONFIG_SYS_MMC_ENV_PART		1	/* boot0 area */
+ #endif
+ 
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
+-
++#endif
+ 
+ 
+ #define CONFIG_AVB_SUPPORT
+diff --git a/include/configs/mx6sabreandroid_common.h b/include/configs/mx6sabreandroid_common.h
+index a45d0fe..2b513e5 100644
+--- a/include/configs/mx6sabreandroid_common.h
++++ b/include/configs/mx6sabreandroid_common.h
+@@ -26,6 +26,10 @@
+ #undef CONFIG_SYS_CBSIZE
+ #define CONFIG_SYS_CBSIZE 2048
+ #endif
++#ifdef CONFIG_SYS_MAXARGS
++#undef CONFIG_SYS_MAXARGS
++#define CONFIG_SYS_MAXARGS     64
++#endif
+ 
+ #ifdef CONFIG_SYS_MALLOC_LEN
+ #undef CONFIG_SYS_MALLOC_LEN
+diff --git a/include/configs/mx6slevkandroid.h b/include/configs/mx6slevkandroid.h
+index 9895211..01f9d60 100644
+--- a/include/configs/mx6slevkandroid.h
++++ b/include/configs/mx6slevkandroid.h
+@@ -41,6 +41,10 @@
+ #undef CONFIG_SYS_CBSIZE
+ #define CONFIG_SYS_CBSIZE 2048
+ #endif
++#ifdef CONFIG_SYS_MAXARGS
++#undef CONFIG_SYS_MAXARGS
++#define CONFIG_SYS_MAXARGS     64
++#endif
+ 
+ #ifdef CONFIG_SYS_MALLOC_LEN
+ #undef CONFIG_SYS_MALLOC_LEN
+diff --git a/include/configs/mx6sxsabreautoandroid.h b/include/configs/mx6sxsabreautoandroid.h
+index b00730e..9717348 100644
+--- a/include/configs/mx6sxsabreautoandroid.h
++++ b/include/configs/mx6sxsabreautoandroid.h
+@@ -27,6 +27,10 @@
+ #undef CONFIG_SYS_CBSIZE
+ #define CONFIG_SYS_CBSIZE 2048
+ #endif
++#ifdef CONFIG_SYS_MAXARGS
++#undef CONFIG_SYS_MAXARGS
++#define CONFIG_SYS_MAXARGS     64
++#endif
+ 
+ #ifdef CONFIG_SYS_MALLOC_LEN
+ #undef CONFIG_SYS_MALLOC_LEN
+diff --git a/include/configs/mx6sxsabresdandroid.h b/include/configs/mx6sxsabresdandroid.h
+index 9e4a5bf..8b59833 100644
+--- a/include/configs/mx6sxsabresdandroid.h
++++ b/include/configs/mx6sxsabresdandroid.h
+@@ -30,6 +30,10 @@
+ #undef CONFIG_SYS_CBSIZE
+ #define CONFIG_SYS_CBSIZE 2048
+ #endif
++#ifdef CONFIG_SYS_MAXARGS
++#undef CONFIG_SYS_MAXARGS
++#define CONFIG_SYS_MAXARGS     64
++#endif
+ 
+ #ifdef CONFIG_SYS_MALLOC_LEN
+ #undef CONFIG_SYS_MALLOC_LEN
+diff --git a/include/configs/mx6ul_nxpu_iopb_android_things.h b/include/configs/mx6ul_nxpu_iopb_android_things.h
+index 4cefd8e..ab16a11 100644
+--- a/include/configs/mx6ul_nxpu_iopb_android_things.h
++++ b/include/configs/mx6ul_nxpu_iopb_android_things.h
+@@ -37,7 +37,11 @@
+ #endif
+ 
+ #define CONFIG_ANDROID_AB_SUPPORT
++
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
++
+ #define CONFIG_CMD_FSL_CAAM_KB
+ #define CONFIG_SHA1
+ #define CONFIG_SHA256
+diff --git a/include/configs/mx6ul_spriot_android_things.h b/include/configs/mx6ul_spriot_android_things.h
+index 278bda7..03628df 100644
+--- a/include/configs/mx6ul_spriot_android_things.h
++++ b/include/configs/mx6ul_spriot_android_things.h
+@@ -33,7 +33,10 @@
+ #define CONFIG_SHA256
+ 
+ #define CONFIG_AVB_SUPPORT
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
++
+ #ifdef CONFIG_AVB_SUPPORT
+ 
+ #ifdef CONFIG_SYS_MALLOC_LEN
+diff --git a/include/configs/mx7dsabresd_androidthings.h b/include/configs/mx7dsabresd_androidthings.h
+index 51b0a84..18542ce 100644
+--- a/include/configs/mx7dsabresd_androidthings.h
++++ b/include/configs/mx7dsabresd_androidthings.h
+@@ -33,7 +33,10 @@
+ #define CONFIG_SYS_MMC_ENV_PART		1	/* boot0 area */
+ #endif
+ 
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
++
+ #define CONFIG_CMD_FS_GENERIC
+ 
+ #define CONFIG_AVB_SUPPORT
+diff --git a/include/configs/mx7dsabresdandroid.h b/include/configs/mx7dsabresdandroid.h
+index 10e169a..4c23b3f 100644
+--- a/include/configs/mx7dsabresdandroid.h
++++ b/include/configs/mx7dsabresdandroid.h
+@@ -25,6 +25,10 @@
+ #undef CONFIG_SYS_CBSIZE
+ #define CONFIG_SYS_CBSIZE 2048
+ #endif
++#ifdef CONFIG_SYS_MAXARGS
++#undef CONFIG_SYS_MAXARGS
++#define CONFIG_SYS_MAXARGS     64
++#endif
+ 
+ #ifdef CONFIG_SYS_MALLOC_LEN
+ #undef CONFIG_SYS_MALLOC_LEN
+diff --git a/include/configs/mx7ulp_evk_android.h b/include/configs/mx7ulp_evk_android.h
+index e4c774f..4b25110 100644
+--- a/include/configs/mx7ulp_evk_android.h
++++ b/include/configs/mx7ulp_evk_android.h
+@@ -26,6 +26,10 @@
+ #undef CONFIG_SYS_CBSIZE
+ #define CONFIG_SYS_CBSIZE 2048
+ #endif
++#ifdef CONFIG_SYS_MAXARGS
++#undef CONFIG_SYS_MAXARGS
++#define CONFIG_SYS_MAXARGS     64
++#endif
+ 
+ #ifdef CONFIG_SYS_MALLOC_LEN
+ #undef CONFIG_SYS_MALLOC_LEN
+diff --git a/include/configs/pico-imx6dl_android_things.h b/include/configs/pico-imx6dl_android_things.h
+index 469d7af..3040055 100644
+--- a/include/configs/pico-imx6dl_android_things.h
++++ b/include/configs/pico-imx6dl_android_things.h
+@@ -21,7 +21,10 @@
+ #define CONFIG_SHA256
+ 
+ #define CONFIG_AVB_SUPPORT
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
++
+ #ifdef CONFIG_AVB_SUPPORT
+ 
+ #ifdef CONFIG_SYS_MALLOC_LEN
+diff --git a/include/configs/pico-imx7dandroidthings.h b/include/configs/pico-imx7dandroidthings.h
+index d06e0c1..b8aa481 100644
+--- a/include/configs/pico-imx7dandroidthings.h
++++ b/include/configs/pico-imx7dandroidthings.h
+@@ -48,7 +48,9 @@
+ #define CONFIG_SHA1
+ #define CONFIG_SHA256
+ 
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
+ 
+ #ifdef CONFIG_SYS_MMC_ENV_DEV
+ #undef CONFIG_SYS_MMC_ENV_DEV
+diff --git a/include/configs/picosom-imx6ul_android_things.h b/include/configs/picosom-imx6ul_android_things.h
+index d752225..d248771 100644
+--- a/include/configs/picosom-imx6ul_android_things.h
++++ b/include/configs/picosom-imx6ul_android_things.h
+@@ -40,7 +40,11 @@
+ #define CONFIG_SHA256
+ 
+ #define CONFIG_AVB_SUPPORT
++
++#ifdef CONFIG_ANDROID_AB_SUPPORT
+ #define CONFIG_SYSTEM_RAMDISK_SUPPORT
++#endif
++
+ #ifdef CONFIG_AVB_SUPPORT
+ 
+ #ifdef CONFIG_SYS_MALLOC_LEN
+diff --git a/scripts/config_whitelist.txt b/scripts/config_whitelist.txt
+index 9f22d59..ff9c3fd 100644
+--- a/scripts/config_whitelist.txt
++++ b/scripts/config_whitelist.txt
+@@ -33,6 +33,7 @@ CONFIG_ANDES_PCU
+ CONFIG_ANDES_PCU_BASE
+ CONFIG_ANDROID_AB_SUPPORT
+ CONFIG_ANDROID_AUTO_SUPPORT
++CONFIG_ANDROID_LOW_MEMORY
+ CONFIG_ANDROID_SUPPORT
+ CONFIG_ANDROID_THINGS_SUPPORT
+ CONFIG_APER_0_BASE
