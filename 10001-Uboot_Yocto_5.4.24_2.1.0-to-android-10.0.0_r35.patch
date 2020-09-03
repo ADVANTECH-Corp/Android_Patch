@@ -1,0 +1,27 @@
+diff --git a/arch/arm/dts/imx8mq-evk-u-boot.dtsi b/arch/arm/dts/imx8mq-evk-u-boot.dtsi
+new file mode 100644
+index 0000000..5013b2e
+--- /dev/null
++++ b/arch/arm/dts/imx8mq-evk-u-boot.dtsi
+@@ -0,0 +1,9 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Copyright 2020 NXP
++ */
++
++&flash0 {
++	/delete-property/ spi-tx-bus-width;
++	/delete-property/ spi-rx-bus-width;
++};
+diff --git a/include/configs/imx8mq_evk.h b/include/configs/imx8mq_evk.h
+index 1769c8c..612b799 100644
+--- a/include/configs/imx8mq_evk.h
++++ b/include/configs/imx8mq_evk.h
+@@ -193,6 +193,7 @@
+ #define CONFIG_SYS_MMC_IMG_LOAD_PART	1
+ 
+ #ifdef CONFIG_FSL_QSPI
++#define CONFIG_SYS_FSL_QSPI_AHB
+ #define FSL_QSPI_FLASH_SIZE		(SZ_32M)
+ #define FSL_QSPI_FLASH_NUM		1
+ #endif
